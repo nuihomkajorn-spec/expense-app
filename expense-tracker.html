@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="บัญชีรายรับ-จ่าย">
+<title>บัญชีรายรับรายจ่าย</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#f7f7f5;
+    --surface:#ffffff;
+    --surface2:#f1f0ec;
+    --border:rgba(0,0,0,0.1);
+    --text:#1a1a18;
+    --text2:#6b6b65;
+    --text3:#a0a09a;
+    --income-bg:#e1f5ee;
+    --income-text:#0a5e47;
+    --expense-bg:#faece7;
+    --expense-text:#7a2f14;
+    --green:#0f6e56;
+    --red:#993c1d;
+    --radius:12px;
+    --radius-sm:8px;
+  }
+  @media(prefers-color-scheme:dark){
+    :root{
+      --bg:#1a1a18;
+      --surface:#242422;
+      --surface2:#2e2e2b;
+      --border:rgba(255,255,255,0.1);
+      --text:#f0ede8;
+      --text2:#a0a098;
+      --text3:#686865;
+      --income-bg:#0a2e22;
+      --income-text:#5dcaa5;
+      --expense-bg:#2e1508;
+      --expense-text:#f0997b;
+      --green:#5dcaa5;
+      --red:#f0997b;
+    }
+  }
+  html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;color:var(--text);font-size:16px;overflow-x:hidden}
+  body{padding-bottom:env(safe-area-inset-bottom)}
+
+  /* layout */
+  .screen{display:none;flex-direction:column;min-height:100vh}
+  .screen.active{display:flex}
+  header{position:sticky;top:0;z-index:10;background:var(--bg);padding:env(safe-area-inset-top) 0 0;border-bottom:0.5px solid var(--border)}
+  .header-inner{padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+  .header-inner h1{font-size:18px;font-weight:600}
+  .content{flex:1;padding:16px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  nav{position:sticky;bottom:0;background:var(--surface);border-top:0.5px solid var(--border);display:flex;padding:8px 0 env(safe-area-inset-bottom);padding-bottom:max(8px,env(safe-area-inset-bottom))}
+  nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--text2);font-size:10px;padding:6px 0;cursor:pointer}
+  nav button.active{color:var(--green)}
+  nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+  /* summary cards */
+  .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .balance-card{background:var(--surface);border-radius:var(--radius);padding:16px;margin-bottom:10px;text-align:center}
+  .balance-label{font-size:12px;color:var(--text2);margin-bottom:4px}
+  .balance-value{font-size:32px;font-weight:600}
+  .metric{background:var(--surface);border-radius:var(--radius);padding:14px}
+  .metric .mlabel{font-size:11px;color:var(--text2);margin-bottom:4px}
+  .metric .mval{font-size:20px;font-weight:600}
+  .metric .mval.inc{color:var(--green)}
+  .metric .mval.exp{color:var(--red)}
+
+  /* add form */
+  .type-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;background:var(--surface2);border-radius:var(--radius);padding:4px}
+  .type-btn{padding:10px;border:none;border-radius:var(--radius-sm);background:transparent;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
+  .type-btn.active.inc{background:var(--income-bg);color:var(--income-text)}
+  .type-btn.active.exp{background:var(--expense-bg);color:var(--expense-text)}
+  .type-btn:not(.active){color:var(--text2)}
+  .form-card{background:var(--surface);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+  .field{margin-bottom:14px}
+  .field:last-child{margin-bottom:0}
+  .field label{display:block;font-size:12px;color:var(--text2);margin-bottom:6px}
+  .field input,.field select{width:100%;padding:12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:15px;-webkit-appearance:none;appearance:none;font-family:inherit}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--green)}
+  .amount-wrap{position:relative}
+  .amount-wrap .sym{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:15px}
+  .amount-wrap input{padding-left:28px}
+  .submit-btn{width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;margin-top:8px;font-family:inherit}
+  .submit-btn:active{opacity:.85}
+
+  /* transaction list */
+  .month-header{font-size:12px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px}
+  .month-header:first-child{margin-top:0}
+  .tx-item{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:var(--radius);padding:12px 14px;margin-bottom:6px}
+  .tx-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .tx-icon.inc{background:var(--income-bg)}
+  .tx-icon.exp{background:var(--expense-bg)}
+  .tx-body{flex:1;min-width:0}
+  .tx-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tx-sub{font-size:12px;color:var(--text2);margin-top:2px}
+  .tx-right{text-align:right;flex-shrink:0}
+  .tx-amount{font-size:15px;font-weight:600}
+  .tx-amount.inc{color:var(--green)}
+  .tx-amount.exp{color:var(--red)}
+  .tx-date2{font-size:11px;color:var(--text3);margin-top:2px}
+  .empty-state{text-align:center;padding:48px 0;color:var(--text2)}
+  .empty-state .icon{font-size:40px;margin-bottom:12px}
+
+  /* chart screen */
+  .chart-wrap{background:var(--surface);border-radius:var(--radius);padding:16px;margin-bottom:12px;position:relative;height:220px}
+  .cat-list{background:var(--surface);border-radius:var(--radius);overflow:hidden}
+  .cat-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:0.5px solid var(--border)}
+  .cat-row:last-child{border-bottom:none}
+  .cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .cat-name{flex:1;font-size:14px}
+  .cat-bar-wrap{width:80px;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+  .cat-bar{height:100%;border-radius:3px}
+  .cat-amt{font-size:13px;font-weight:500;color:var(--text);min-width:70px;text-align:right}
+
+  /* settings screen */
+  .section-card{background:var(--surface);border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+  .row{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:0.5px solid var(--border)}
+  .row:last-child{border-bottom:none}
+  .row-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .row-label{flex:1;font-size:15px}
+  .row-value{font-size:14px;color:var(--text2)}
+  .danger{color:var(--red)}
+  .section-label{font-size:12px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin:16px 0 6px;padding:0 4px}
+  canvas{display:block}
+</style>
+</head>
+<body>
+
+<!-- HOME SCREEN -->
+<div class="screen active" id="homeScreen">
+  <header>
+    <div class="header-inner">
+      <h1>บัญชีรายรับรายจ่าย</h1>
+      <span id="homeMonthLabel" style="font-size:13px;color:var(--text2)"></span>
+    </div>
+  </header>
+  <div class="content">
+    <div class="balance-card">
+      <div class="balance-label">ยอดคงเหลือ</div>
+      <div class="balance-value" id="homeBalance">฿0</div>
+    </div>
+    <div class="summary-grid">
+      <div class="metric"><div class="mlabel">💚 รายรับ</div><div class="mval inc" id="homeIncome">฿0</div></div>
+      <div class="metric"><div class="mlabel">🔴 รายจ่าย</div><div class="mval exp" id="homeExpense">฿0</div></div>
+    </div>
+    <div id="txListHome"></div>
+  </div>
+  <nav>
+    <button class="active" onclick="showScreen('homeScreen',this)">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+      หน้าหลัก
+    </button>
+    <button onclick="showScreen('addScreen',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      เพิ่มรายการ
+    </button>
+    <button onclick="showScreen('chartScreen',this)">
+      <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      สถิติ
+    </button>
+    <button onclick="showScreen('settingScreen',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      ตั้งค่า
+    </button>
+  </nav>
+</div>
+
+<!-- ADD SCREEN -->
+<div class="screen" id="addScreen">
+  <header>
+    <div class="header-inner"><h1>เพิ่มรายการ</h1></div>
+  </header>
+  <div class="content">
+    <div class="type-toggle">
+      <button class="type-btn inc active" id="addIncBtn" onclick="setAddType('income')">+ รายรับ</button>
+      <button class="type-btn exp" id="addExpBtn" onclick="setAddType('expense')">− รายจ่าย</button>
+    </div>
+    <div class="form-card">
+      <div class="field">
+        <label>จำนวนเงิน (฿)</label>
+        <div class="amount-wrap">
+          <span class="sym">฿</span>
+          <input type="number" id="addAmount" inputmode="decimal" placeholder="0.00" min="0">
+        </div>
+      </div>
+      <div class="field">
+        <label>ชื่อรายการ</label>
+        <input type="text" id="addName" placeholder="เช่น ค่าอาหาร, เงินเดือน">
+      </div>
+      <div class="field">
+        <label>หมวดหมู่</label>
+        <select id="addCat"></select>
+      </div>
+      <div class="field">
+        <label>วันที่</label>
+        <input type="date" id="addDate">
+      </div>
+      <div class="field">
+        <label>หมายเหตุ (ไม่บังคับ)</label>
+        <input type="text" id="addNote" placeholder="รายละเอียดเพิ่มเติม">
+      </div>
+    </div>
+    <button class="submit-btn" onclick="submitTransaction()">บันทึกรายการ</button>
+  </div>
+  <nav>
+    <button onclick="showScreen('homeScreen',this)">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+      หน้าหลัก
+    </button>
+    <button class="active" onclick="showScreen('addScreen',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      เพิ่มรายการ
+    </button>
+    <button onclick="showScreen('chartScreen',this)">
+      <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      สถิติ
+    </button>
+    <button onclick="showScreen('settingScreen',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      ตั้งค่า
+    </button>
+  </nav>
+</div>
+
+<!-- CHART SCREEN -->
+<div class="screen" id="chartScreen">
+  <header>
+    <div class="header-inner"><h1>สถิติ</h1></div>
+  </header>
+  <div class="content">
+    <div class="chart-wrap">
+      <canvas id="mainChart" role="img" aria-label="แผนภูมิรายจ่ายตามหมวดหมู่"></canvas>
+    </div>
+    <div id="catBreakdown"></div>
+  </div>
+  <nav>
+    <button onclick="showScreen('homeScreen',this)">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+      หน้าหลัก
+    </button>
+    <button onclick="showScreen('addScreen',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      เพิ่มรายการ
+    </button>
+    <button class="active" onclick="showScreen('chartScreen',this)">
+      <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      สถิติ
+    </button>
+    <button onclick="showScreen('settingScreen',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      ตั้งค่า
+    </button>
+  </nav>
+</div>
+
+<!-- SETTINGS SCREEN -->
+<div class="screen" id="settingScreen">
+  <header>
+    <div class="header-inner"><h1>ตั้งค่า</h1></div>
+  </header>
+  <div class="content">
+    <div class="section-label">ข้อมูล</div>
+    <div class="section-card">
+      <div class="row">
+        <div class="row-icon" style="background:#e1f5ee">📊</div>
+        <div class="row-label">รายการทั้งหมด</div>
+        <div class="row-value" id="statCount">0 รายการ</div>
+      </div>
+      <div class="row">
+        <div class="row-icon" style="background:#e1f5ee">📅</div>
+        <div class="row-label">บันทึกตั้งแต่</div>
+        <div class="row-value" id="statSince">-</div>
+      </div>
+    </div>
+    <div class="section-label">การจัดการ</div>
+    <div class="section-card">
+      <div class="row" onclick="exportData()" style="cursor:pointer">
+        <div class="row-icon" style="background:#e1f5ee">📤</div>
+        <div class="row-label">ส่งออกข้อมูล (CSV)</div>
+        <div class="row-value">›</div>
+      </div>
+      <div class="row" onclick="clearData()" style="cursor:pointer">
+        <div class="row-icon" style="background:#faece7">🗑</div>
+        <div class="row-label danger">ลบข้อมูลทั้งหมด</div>
+        <div class="row-value">›</div>
+      </div>
+    </div>
+    <div class="section-label">เกี่ยวกับ</div>
+    <div class="section-card">
+      <div class="row">
+        <div class="row-icon" style="background:#f1f0ec">💡</div>
+        <div class="row-label">เวอร์ชัน</div>
+        <div class="row-value">1.0</div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--text3);text-align:center;margin-top:16px">ข้อมูลทั้งหมดเก็บในเครื่องของคุณ ไม่ได้ส่งออกไปที่ใด</p>
+  </div>
+  <nav>
+    <button onclick="showScreen('homeScreen',this)">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+      หน้าหลัก
+    </button>
+    <button onclick="showScreen('addScreen',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      เพิ่มรายการ
+    </button>
+    <button onclick="showScreen('chartScreen',this)">
+      <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      สถิติ
+    </button>
+    <button class="active" onclick="showScreen('settingScreen',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      ตั้งค่า
+    </button>
+  </nav>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const STORAGE_KEY='expense_tracker_v1';
+const incCats=['เงินเดือน','โบนัส','รายได้เสริม','เงินปันผล','อื่นๆ'];
+const expCats=['อาหาร','เดินทาง','ที่พัก','ช็อปปิง','บันเทิง','สุขภาพ','การศึกษา','ออม/ลงทุน','อื่นๆ'];
+const catColors={'อาหาร':'#1D9E75','เดินทาง':'#378ADD','ที่พัก':'#D4537E','ช็อปปิง':'#BA7517','บันเทิง':'#7F77DD','สุขภาพ':'#D85A30','การศึกษา':'#639922','ออม/ลงทุน':'#0F6E56','อื่นๆ':'#888780','เงินเดือน':'#0F6E56','โบนัส':'#1D9E75','รายได้เสริม':'#5DCAA5','เงินปันผล':'#9FE1CB'};
+let txType='income', chartInst=null;
+
+function load(){
+  try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch{return[]}
+}
+function save(data){localStorage.setItem(STORAGE_KEY,JSON.stringify(data))}
+function fmt(n){return n.toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:0})}
+function today(){return new Date().toISOString().split('T')[0]}
+function thDate(d){return new Date(d).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'})}
+
+function showScreen(id,btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(id==='homeScreen') renderHome();
+  if(id==='chartScreen') renderChart();
+  if(id==='settingScreen') renderSettings();
+}
+
+function setAddType(t){
+  txType=t;
+  document.getElementById('addIncBtn').className='type-btn inc'+(t==='income'?' active':'');
+  document.getElementById('addExpBtn').className='type-btn exp'+(t==='expense'?' active':'');
+  const cats=t==='income'?incCats:expCats;
+  document.getElementById('addCat').innerHTML=cats.map(c=>`<option>${c}</option>`).join('');
+}
+
+function submitTransaction(){
+  const amount=parseFloat(document.getElementById('addAmount').value);
+  const name=document.getElementById('addName').value.trim();
+  const cat=document.getElementById('addCat').value;
+  const date=document.getElementById('addDate').value||today();
+  const note=document.getElementById('addNote').value.trim();
+  if(!name||!amount||amount<=0){alert('กรุณากรอกชื่อรายการและจำนวนเงิน');return;}
+  const data=load();
+  data.unshift({id:Date.now(),type:txType,name,amount,cat,date,note});
+  save(data);
+  document.getElementById('addAmount').value='';
+  document.getElementById('addName').value='';
+  document.getElementById('addNote').value='';
+  showScreen('homeScreen',document.querySelector('#homeScreen~*~*~* nav button'));
+  // go home
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('homeScreen').classList.add('active');
+  document.querySelectorAll('nav button').forEach((b,i)=>{b.classList.remove('active');if(i===0)b.classList.add('active');});
+  renderHome();
+}
+
+function deleteTransaction(id){
+  if(!confirm('ลบรายการนี้?'))return;
+  save(load().filter(t=>t.id!==id));
+  renderHome();
+}
+
+function renderHome(){
+  const data=load();
+  const now=new Date();
+  document.getElementById('homeMonthLabel').textContent=now.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
+  const inc=data.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const exp=data.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const bal=inc-exp;
+  document.getElementById('homeIncome').textContent='฿'+fmt(inc);
+  document.getElementById('homeExpense').textContent='฿'+fmt(exp);
+  const be=document.getElementById('homeBalance');
+  be.textContent=(bal<0?'-':'')+'฿'+fmt(Math.abs(bal));
+  be.style.color=bal<0?'var(--red)':bal>0?'var(--green)':'var(--text)';
+  const list=document.getElementById('txListHome');
+  if(!data.length){list.innerHTML='<div class="empty-state"><div class="icon">📋</div><div>ยังไม่มีรายการ<br>กด "เพิ่มรายการ" เพื่อเริ่มต้น</div></div>';return;}
+  const icons={income:'↓',expense:'↑'};
+  list.innerHTML=data.slice(0,30).map(t=>`
+    <div class="tx-item">
+      <div class="tx-icon ${t.type==='income'?'inc':'exp'}">${icons[t.type]}</div>
+      <div class="tx-body">
+        <div class="tx-name">${t.name}</div>
+        <div class="tx-sub">${t.cat}${t.note?' · '+t.note:''}</div>
+      </div>
+      <div class="tx-right">
+        <div class="tx-amount ${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':'-'}฿${fmt(t.amount)}</div>
+        <div class="tx-date2">${thDate(t.date)}</div>
+      </div>
+      <button onclick="deleteTransaction(${t.id})" style="background:none;border:none;color:var(--text3);font-size:18px;padding:0 0 0 8px;cursor:pointer;line-height:1" aria-label="ลบ">×</button>
+    </div>`).join('');
+}
+
+function renderChart(){
+  const data=load();
+  const expenses=data.filter(t=>t.type==='expense');
+  const bycat={};
+  expenses.forEach(t=>{bycat[t.cat]=(bycat[t.cat]||0)+t.amount});
+  const labels=Object.keys(bycat).sort((a,b)=>bycat[b]-bycat[a]);
+  const vals=labels.map(l=>bycat[l]);
+  const total=vals.reduce((s,v)=>s+v,0);
+  const colors=labels.map(l=>catColors[l]||'#888780');
+  if(chartInst){chartInst.destroy();chartInst=null;}
+  if(!labels.length){
+    document.getElementById('catBreakdown').innerHTML='<div class="empty-state"><div class="icon">📊</div><div>ยังไม่มีข้อมูลรายจ่าย</div></div>';
+    return;
+  }
+  chartInst=new Chart(document.getElementById('mainChart'),{
+    type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:2,borderColor:'rgba(0,0,0,0)'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`฿${fmt(c.raw)}`}}}}
+  });
+  document.getElementById('catBreakdown').innerHTML=`<div class="cat-list">`+labels.map((l,i)=>`
+    <div class="cat-row">
+      <div class="cat-dot" style="background:${colors[i]}"></div>
+      <div class="cat-name">${l}</div>
+      <div class="cat-bar-wrap"><div class="cat-bar" style="width:${Math.round(vals[i]/total*100)}%;background:${colors[i]}"></div></div>
+      <div class="cat-amt">฿${fmt(vals[i])}</div>
+    </div>`).join('')+'</div>';
+}
+
+function renderSettings(){
+  const data=load();
+  document.getElementById('statCount').textContent=data.length+' รายการ';
+  if(data.length){
+    const dates=data.map(t=>t.date).sort();
+    document.getElementById('statSince').textContent=thDate(dates[0]);
+  }
+}
+
+function exportData(){
+  const data=load();
+  if(!data.length){alert('ไม่มีข้อมูล');return;}
+  const rows=[['วันที่','ประเภท','ชื่อ','หมวดหมู่','จำนวน','หมายเหตุ'],...data.map(t=>[t.date,t.type==='income'?'รายรับ':'รายจ่าย',t.name,t.cat,t.amount,t.note])];
+  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='รายรับรายจ่าย.csv';a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearData(){
+  if(confirm('ลบข้อมูลทั้งหมด? ไม่สามารถกู้คืนได้')){
+    localStorage.removeItem(STORAGE_KEY);
+    renderHome();
+    renderSettings();
+    alert('ลบข้อมูลเรียบร้อย');
+  }
+}
+
+// init
+setAddType('income');
+document.getElementById('addDate').value=today();
+renderHome();
+</script>
+</body>
+</html>
